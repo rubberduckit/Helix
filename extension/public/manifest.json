@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Helix",
+  "version": "0.1.0",
+  "description": "Generate userscripts with Gemini and chat in the side panel.",
+  "icons": {
+    "16": "sparkle_active.png",
+    "32": "sparkle_active.png",
+    "48": "sparkle_active.png",
+    "128": "sparkle_active.png"
+  },
+  "action": {
+    "default_title": "Helix",
+    "default_icon": {
+      "16": "sparkle_active.png",
+      "32": "sparkle_active.png",
+      "48": "sparkle_active.png",
+      "128": "sparkle_active.png"
+    }
+  },
+  "permissions": [
+    "sidePanel",
+    "scripting",
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

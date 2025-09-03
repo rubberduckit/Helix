@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant dynamic (&:is(.dynamic *));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -39,6 +40,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-chat-input: var(--chat-input);
+  --color-chat-input-foreground: var(--chat-input-foreground);
+  --color-chat-input-border: var(--chat-input-border);
+  --color-chat-send-bg: var(--chat-send-bg);
+  --color-chat-send-foreground: var(--chat-send-foreground);
+  --color-chat-icon: var(--chat-icon);
 }
 
 :root {
@@ -74,6 +81,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --chat-input: oklch(0.97 0 0);
+  --chat-input-foreground: oklch(0.145 0 0);
+  --chat-input-border: oklch(0.922 0 0);
+  --chat-send-bg: oklch(0.205 0 0);
+  --chat-send-foreground: oklch(0.985 0 0);
+  --chat-icon: oklch(0.556 0 0);
 }
 
 .dark {
@@ -108,13 +121,99 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --chat-input: oklch(0.269 0 0);
+  --chat-input-foreground: oklch(0.985 0 0);
+  --chat-input-border: oklch(1 0 0 / 15%);
+  --chat-send-bg: oklch(0.985 0 0);
+  --chat-send-foreground: oklch(0.205 0 0);
+  --chat-icon: oklch(0.708 0 0);
+}
+
+.dynamic {
+  --background: oklch(0.6 0.15 240);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.7 0.1 240 / 0.8);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.7 0.1 240 / 0.9);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.8 0.2 60);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.7 0.1 240 / 0.6);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.7 0.1 240 / 0.4);
+  --muted-foreground: oklch(0.8 0 0);
+  --accent: oklch(0.7 0.1 240 / 0.6);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.8 0.2 60 / 0.3);
+  --input: oklch(0.7 0.1 240 / 0.6);
+  --ring: oklch(0.8 0.2 60 / 0.5);
+  --chart-1: oklch(0.8 0.2 60);
+  --chart-2: oklch(0.7 0.15 180);
+  --chart-3: oklch(0.6 0.15 240);
+  --chart-4: oklch(0.8 0.2 300);
+  --chart-5: oklch(0.7 0.15 120);
+  --sidebar: oklch(0.6 0.15 240 / 0.9);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.8 0.2 60);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.7 0.1 240 / 0.7);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.8 0.2 60 / 0.3);
+  --sidebar-ring: oklch(0.8 0.2 60 / 0.5);
+  --chat-input: oklch(0.8 0.2 60 / 0.8);
+  --chat-input-foreground: oklch(0.145 0 0);
+  --chat-input-border: oklch(0.8 0.2 60 / 0.4);
+  --chat-send-bg: oklch(0.985 0 0);
+  --chat-send-foreground: oklch(0.145 0 0);
+  --chat-icon: oklch(0.985 0 0);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scroll-behavior: smooth;
+    scrollbar-gutter: auto;
   }
   body {
     @apply bg-background text-foreground;
   }
+}
+
+
+
+/* Global minimal, low-visibility scrollbars (cross-browser) */
+/* Firefox: hidden by default, subtle only while scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+html[data-scrolling] * {
+  scrollbar-color: color-mix(in oklch, var(--foreground) 35%, transparent) transparent;
+}
+
+/* WebKit-based browsers (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Invisible by default; fades in during scrolling */
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 500ms ease;
+}
+html[data-scrolling] *::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklch, var(--foreground) 40%, transparent);
+}
+html[data-scrolling] *::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklch, var(--foreground) 55%, transparent);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }

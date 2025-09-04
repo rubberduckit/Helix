@@ -7,14 +7,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 interface SettingsPageProps {
   apiKey: string;
   onApiKeyChange: (key: string) => void;
-  onSaveSettings: () => void;
   onResetSettings: () => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
   apiKey,
   onApiKeyChange,
-  onSaveSettings,
   onResetSettings,
 }) => {
   const { theme, setTheme } = useTheme();
@@ -27,7 +25,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <Button variant="outline" onClick={onResetSettings}>
             Reset
           </Button>
-          <Button onClick={onSaveSettings}>Save</Button>
         </div>
       </div>
 

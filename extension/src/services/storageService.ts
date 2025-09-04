@@ -10,6 +10,7 @@ export interface ChatSession {
   timestamp: Date;
   messageCount: number;
   messages: Message[];
+  scriptData?: StructuredScript;
 }
 
 export interface Message {
@@ -17,6 +18,13 @@ export interface Message {
   content: string;
   isUser: boolean;
   timestamp: Date;
+}
+
+export interface StructuredScript {
+  title: string;
+  friendly_message: string;
+  userscript: string;
+  urlmatch: string;
 }
 
 export interface Settings {

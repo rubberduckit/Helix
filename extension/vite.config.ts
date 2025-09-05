@@ -19,6 +19,10 @@ export default defineConfig({
           src: "public/background.js",
           dest: ".",
         },
+        {
+          src: "public/system_prompt.md",
+          dest: ".",
+        },
       ],
     }),
   ],

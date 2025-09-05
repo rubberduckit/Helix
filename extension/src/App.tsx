@@ -4,8 +4,10 @@ import { ChatPage } from "./components/ChatPage";
 import { HistoryPage } from "./components/HistoryPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { storageService } from "./services/storageService";
+import { chromeService } from "./services/chromeService";
 import type { ChatSession, Message, StructuredScript } from "./services/storageService";
 import "./App.css";
+import { aiService } from "./services/aiService";
 
 type Page = "chat" | "history" | "settings";
 
@@ -43,6 +45,7 @@ function App() {
       // Load settings
       const settings = await storageService.getSettings();
       setApiKey(settings.apiKey || "");
+      console.log('settings', settings);
 
       // Load chat sessions
       const sessions = await storageService.getChatSessions();
@@ -69,20 +72,51 @@ function App() {
     setMessages(newMessages);
     setIsLoading(true);
 
-    // Simulate AI response (remove this when implementing actual API)
-    setTimeout(async () => {
-      let aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `I understand you want to "${message}". I can help you create a userscript to modify the current page. What specific changes would you like me to implement?`,
-        isUser: false,
-        timestamp: new Date(),
-      };
+    // Insert a placeholder assistant message to stream into
+    const assistantMessageId = (Date.now() + 1).toString();
+    const placeholderAssistant: Message = {
+      id: assistantMessageId,
+      content: "Generating userscript…",
+      isUser: false,
+      timestamp: new Date(),
+    };
+    setMessages([...newMessages, placeholderAssistant]);
 
-      // Attempt to parse structured AI response if message contains JSON
-      // Expected shape: { title, friendly_message, userscript, urlmatch }
+    try {
+      // Compose formatted user message with current page context
+      let currentUrl = "unknown";
+      try {
+        const tab = await chromeService.getCurrentTab();
+        currentUrl = tab?.url || "unknown";
+      } catch {
+        // Not in extension context or failed to get tab; keep placeholder
+      }
+      const formattedUserMessage = `Current Page: ${currentUrl}\nDOM content: PLACEHOLDER\nUser Query: ${message}`;
+
+      // Load system prompt from extension/public (works in dev and extension)
+      const systemPromptUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+        ? chrome.runtime.getURL('system_prompt.md')
+        : '/system_prompt.md';
+      const resp = await fetch(systemPromptUrl);
+      const systemPrompt = await resp.text();
+
+      let accumulated = "";
+      const fullText = await aiService.streamGenerate(
+        {
+          apiKey,
+          userText: formattedUserMessage,
+          systemPrompt,
+        },
+        (delta) => {
+          accumulated += delta;
+          // Do not stream raw JSON into the UI; wait to parse and show friendly_message
+        }
+      );
+
+      // Try to parse structured JSON at the end
       let parsedScript: StructuredScript | null = null;
       try {
-        const parsed = JSON.parse(aiMessage.content);
+        const parsed = JSON.parse(fullText);
         if (
           parsed &&
           typeof parsed.title === "string" &&
@@ -90,30 +124,59 @@ function App() {
           typeof parsed.userscript === "string" &&
           typeof parsed.urlmatch === "string"
         ) {
-          aiMessage = {
-            ...aiMessage,
-            content: parsed.friendly_message,
-          };
-          const newScriptData: StructuredScript = {
+          setScriptData({
+            title: parsed.title,
+            friendly_message: parsed.friendly_message,
+            userscript: parsed.userscript,
+            urlmatch: parsed.urlmatch,
+          });
+          // Replace assistant message content with friendly_message
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { ...m, content: parsed.friendly_message }
+                : m
+            )
+          );
+          parsedScript = {
             title: parsed.title,
             friendly_message: parsed.friendly_message,
             userscript: parsed.userscript,
             urlmatch: parsed.urlmatch,
           };
-          parsedScript = newScriptData;
-          setScriptData(newScriptData);
         }
       } catch {
-        // Not a structured response; leave as-is
+        // ignore if not JSON
       }
 
-      const finalMessages = [...newMessages, aiMessage];
+      const finalMessages = [
+        ...newMessages,
+        {
+          id: assistantMessageId,
+          content: parsedScript ? parsedScript.friendly_message : accumulated,
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ];
       setMessages(finalMessages);
       setIsLoading(false);
-
-      // Save the conversation
       await saveConversation(finalMessages, message, parsedScript);
-    }, 1500);
+    } catch (error: any) {
+      console.error("AI error:", error);
+      const errorMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        content:
+          error?.message === 'Missing Gemini API key'
+            ? 'Please add your Gemini API key in Settings.'
+            : 'Something went wrong generating a response. Try again.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      const finalMessages = [...newMessages, errorMsg];
+      setMessages(finalMessages);
+      setIsLoading(false);
+      await saveConversation(finalMessages, message, null);
+    }
   };
 
   const saveConversation = async (

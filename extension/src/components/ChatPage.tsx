@@ -165,8 +165,22 @@ export const ChatPage: React.FC<ChatPageProps> = ({
               message={message.content}
               isUser={message.isUser}
               timestamp={message.timestamp}
-              onExecuteScript={!message.isUser && idx === messages.length - 1 ? handleExecuteScript : undefined}
-              onExecuteInlineScript={!message.isUser && idx === messages.length - 1 ? handleExecuteInlineScript : undefined}
+              onExecuteScript={
+                !message.isUser &&
+                idx === messages.length - 1 &&
+                !isLoading &&
+                !!scriptData?.userscript
+                  ? handleExecuteScript
+                  : undefined
+              }
+              onExecuteInlineScript={
+                !message.isUser &&
+                idx === messages.length - 1 &&
+                !isLoading &&
+                !!scriptData?.userscript
+                  ? handleExecuteInlineScript
+                  : undefined
+              }
             />
           ))
         )}

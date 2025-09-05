@@ -41,6 +41,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Inject an external script file (CSP compliant)
             chrome.scripting.executeScript({
               target: { tabId: tabs[0].id },
+              world: 'MAIN',
               files: [message.scriptFile]
             }).then(() => {
               sendResponse({
@@ -54,37 +55,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               });
             });
           } else {
-            // Execute inline script code using Function constructor
+            // Inject inline script into MAIN world by creating a <script> tag
             chrome.scripting.executeScript({
               target: { tabId: tabs[0].id },
-              func: (scriptCode) => {
+              world: 'MAIN',
+              func: (code) => {
                 try {
-                  // Execute the script code directly using Function constructor (safer than eval)
-                  const scriptFunction = new Function(scriptCode);
-                  const result = scriptFunction();
-                  return { success: true, result: result, message: 'Script executed successfully' };
+                  const script = document.createElement('script');
+                  script.textContent = code;
+                  (document.documentElement || document.head || document.body).appendChild(script);
+                  script.remove();
+                  return { success: true, message: 'Script injected into MAIN world' };
                 } catch (error) {
-                  return { success: false, error: error.message };
+                  return { success: false, error: error instanceof Error ? error.message : String(error) };
                 }
               },
               args: [message.scriptCode]
             }).then((results) => {
-              if (results && results[0]) {
-                sendResponse({
-                  success: true,
-                  result: results[0].result
-                });
+              if (results && results[0] && results[0].result && results[0].result.success) {
+                sendResponse({ success: true, result: results[0].result.message });
               } else {
-                sendResponse({
-                  success: false,
-                  error: 'Failed to execute script'
-                });
+                sendResponse({ success: false, error: 'Failed to inject script' });
               }
             }).catch((error) => {
-              sendResponse({
-                success: false,
-                error: error.message
-              });
+              sendResponse({ success: false, error: error.message });
             });
           }
         } else {

@@ -1,15 +1,10 @@
-// Content script for Helix Chrome Extension
-// This script runs in the context of web pages and can modify the DOM
+console.log("Helix content script loaded");
 
-console.log('Helix content script loaded');
-
-// Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
-  
+  console.log("Content script received message:", message);
+
   switch (message.type) {
-    case 'MODIFY_DOM':
-      // Modify the DOM based on the received instructions
+    case "MODIFY_DOM":
       try {
         const result = modifyDOM(message.instructions);
         sendResponse({ success: true, result });
@@ -17,93 +12,157 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: error.message });
       }
       break;
-      
-    case 'GET_PAGE_INFO':
-      // Get information about the current page
+
+    case "GET_PAGE_INFO":
       const pageInfo = {
         url: window.location.href,
         title: document.title,
         domain: window.location.hostname,
         elements: {
-          links: document.querySelectorAll('a').length,
-          buttons: document.querySelectorAll('button').length,
-          forms: document.querySelectorAll('form').length,
-          images: document.querySelectorAll('img').length
-        }
+          links: document.querySelectorAll("a").length,
+          buttons: document.querySelectorAll("button").length,
+          forms: document.querySelectorAll("form").length,
+          images: document.querySelectorAll("img").length,
+        },
       };
       sendResponse({ success: true, pageInfo });
       break;
-      
+
+    case "GET_PAGE_DOM": {
+      try {
+        const cloneDoc = document.cloneNode(true);
+
+        function replaceContentWithComment(doc, tagName, commentText) {
+          try {
+            const elements = doc.getElementsByTagName(tagName);
+            for (let i = elements.length - 1; i >= 0; i--) {
+              const comment = doc.createComment(commentText);
+              const parent = elements[i].parentNode;
+              if (parent) parent.replaceChild(comment, elements[i]);
+            }
+          } catch (error) {
+            console.error(`Error replacing ${tagName} content:`, error);
+          }
+        }
+
+        function removeBase64Images(doc) {
+          try {
+            const images = doc.getElementsByTagName("img");
+            for (let i = images.length - 1; i >= 0; i--) {
+              if (images[i].src && images[i].src.startsWith("data:image")) {
+                const comment = doc.createComment("Base64 image removed");
+                const parent = images[i].parentNode;
+                if (parent) parent.replaceChild(comment, images[i]);
+              }
+            }
+
+            const elements = doc.querySelectorAll('[style*="url(data:image"]');
+            for (let i = elements.length - 1; i >= 0; i--) {
+              const style = elements[i].getAttribute("style") || "";
+              const newStyle = style.replace(
+                /url\(data:image[^)]+\)/g,
+                "/* Base64 image removed */"
+              );
+              elements[i].setAttribute("style", newStyle);
+            }
+          } catch (error) {
+            console.error("Error removing base64 images:", error);
+          }
+        }
+
+        function removeSpecificContent(doc) {
+          replaceContentWithComment(doc, "script", "Script content removed");
+          replaceContentWithComment(doc, "style", "Style content removed");
+          replaceContentWithComment(doc, "svg", "SVG content removed");
+          removeBase64Images(doc);
+        }
+
+        removeSpecificContent(cloneDoc);
+
+        const serializer = new XMLSerializer();
+        const domHtml = serializer.serializeToString(cloneDoc);
+
+        const meta = {
+          url: location.href,
+          title: document.title,
+          lang: document.documentElement.lang || "",
+        };
+        sendResponse({ success: true, domHtml, meta });
+      } catch (error) {
+        sendResponse({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      break;
+    }
+
     default:
-      sendResponse({ success: false, error: 'Unknown message type' });
+      sendResponse({ success: false, error: "Unknown message type" });
   }
 });
 
-// Function to modify the DOM based on instructions
 function modifyDOM(instructions) {
   const results = [];
-  
+
   instructions.forEach((instruction, index) => {
     try {
       switch (instruction.action) {
-        case 'style':
-          // Apply CSS styles to elements
+        case "style":
           const elements = document.querySelectorAll(instruction.selector);
-          elements.forEach(element => {
+          elements.forEach((element) => {
             Object.assign(element.style, instruction.styles);
           });
           results.push({
-            action: 'style',
+            action: "style",
             selector: instruction.selector,
             elementsModified: elements.length,
-            success: true
+            success: true,
           });
           break;
-          
-        case 'addClass':
-          // Add CSS classes to elements
+
+        case "addClass":
           const classElements = document.querySelectorAll(instruction.selector);
-          classElements.forEach(element => {
+          classElements.forEach((element) => {
             element.classList.add(...instruction.classes);
           });
           results.push({
-            action: 'addClass',
+            action: "addClass",
             selector: instruction.selector,
             elementsModified: classElements.length,
-            success: true
+            success: true,
           });
           break;
-          
-        case 'removeClass':
-          // Remove CSS classes from elements
-          const removeClassElements = document.querySelectorAll(instruction.selector);
-          removeClassElements.forEach(element => {
+
+        case "removeClass":
+          const removeClassElements = document.querySelectorAll(
+            instruction.selector
+          );
+          removeClassElements.forEach((element) => {
             element.classList.remove(...instruction.classes);
           });
           results.push({
-            action: 'removeClass',
+            action: "removeClass",
             selector: instruction.selector,
             elementsModified: removeClassElements.length,
-            success: true
+            success: true,
           });
           break;
-          
-        case 'setAttribute':
-          // Set attributes on elements
+
+        case "setAttribute":
           const attrElements = document.querySelectorAll(instruction.selector);
-          attrElements.forEach(element => {
+          attrElements.forEach((element) => {
             element.setAttribute(instruction.attribute, instruction.value);
           });
           results.push({
-            action: 'setAttribute',
+            action: "setAttribute",
             selector: instruction.selector,
             elementsModified: attrElements.length,
-            success: true
+            success: true,
           });
           break;
-          
-        case 'createElement':
-          // Create and insert new elements
+
+        case "createElement":
           const newElement = document.createElement(instruction.tagName);
           if (instruction.innerHTML) {
             newElement.innerHTML = instruction.innerHTML;
@@ -114,104 +173,105 @@ function modifyDOM(instructions) {
           if (instruction.classes) {
             newElement.classList.add(...instruction.classes);
           }
-          
-          const targetElement = document.querySelector(instruction.targetSelector);
+
+          const targetElement = document.querySelector(
+            instruction.targetSelector
+          );
           if (targetElement) {
-            if (instruction.position === 'before') {
+            if (instruction.position === "before") {
               targetElement.parentNode.insertBefore(newElement, targetElement);
-            } else if (instruction.position === 'after') {
-              targetElement.parentNode.insertBefore(newElement, targetElement.nextSibling);
+            } else if (instruction.position === "after") {
+              targetElement.parentNode.insertBefore(
+                newElement,
+                targetElement.nextSibling
+              );
             } else {
               targetElement.appendChild(newElement);
             }
             results.push({
-              action: 'createElement',
+              action: "createElement",
               tagName: instruction.tagName,
-              success: true
+              success: true,
             });
           } else {
             results.push({
-              action: 'createElement',
+              action: "createElement",
               tagName: instruction.tagName,
               success: false,
-              error: 'Target element not found'
+              error: "Target element not found",
             });
           }
           break;
-          
-        case 'removeElement':
-          // Remove elements from the DOM
-          const removeElements = document.querySelectorAll(instruction.selector);
-          removeElements.forEach(element => {
+
+        case "removeElement":
+          const removeElements = document.querySelectorAll(
+            instruction.selector
+          );
+          removeElements.forEach((element) => {
             element.remove();
           });
           results.push({
-            action: 'removeElement',
+            action: "removeElement",
             selector: instruction.selector,
             elementsRemoved: removeElements.length,
-            success: true
+            success: true,
           });
           break;
-          
-        case 'addEventListener':
-          // Add event listeners to elements
+
+        case "addEventListener":
           const eventElements = document.querySelectorAll(instruction.selector);
-          eventElements.forEach(element => {
+          eventElements.forEach((element) => {
             element.addEventListener(instruction.event, instruction.handler);
           });
           results.push({
-            action: 'addEventListener',
+            action: "addEventListener",
             selector: instruction.selector,
             elementsModified: eventElements.length,
-            success: true
+            success: true,
           });
           break;
-          
+
         default:
           results.push({
             action: instruction.action,
             success: false,
-            error: 'Unknown action'
+            error: "Unknown action",
           });
       }
     } catch (error) {
       results.push({
         action: instruction.action,
         success: false,
-        error: error.message
+        error: error.message,
       });
     }
   });
-  
+
   return results;
 }
 
-// Utility function to safely query elements
 function safeQuerySelector(selector) {
   try {
     return document.querySelector(selector);
   } catch (error) {
-    console.error('Invalid selector:', selector, error);
+    console.error("Invalid selector:", selector, error);
     return null;
   }
 }
 
-// Utility function to safely query all elements
 function safeQuerySelectorAll(selector) {
   try {
     return document.querySelectorAll(selector);
   } catch (error) {
-    console.error('Invalid selector:', selector, error);
+    console.error("Invalid selector:", selector, error);
     return [];
   }
 }
 
-// Notify that the content script is ready
-chrome.runtime.sendMessage({
-  type: 'CONTENT_SCRIPT_READY',
-  url: window.location.href,
-  timestamp: Date.now()
-}).catch(() => {
-  // Ignore errors if background script is not ready
-});
-
+chrome.runtime
+  .sendMessage({
+    type: "CONTENT_SCRIPT_READY",
+    url: window.location.href,
+    timestamp: Date.now(),
+  })
+  .catch(() => {});

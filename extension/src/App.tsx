@@ -5,7 +5,11 @@ import { HistoryPage } from "./components/HistoryPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { storageService } from "./services/storageService";
 import { chromeService } from "./services/chromeService";
-import type { ChatSession, Message, StructuredScript } from "./services/storageService";
+import type {
+  ChatSession,
+  Message,
+  StructuredScript,
+} from "./services/storageService";
 import "./App.css";
 import { aiService } from "./services/aiService";
 
@@ -21,12 +25,10 @@ function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [scriptData, setScriptData] = useState<StructuredScript | null>(null);
 
-  // Load initial data from storage
   useEffect(() => {
     loadInitialData();
   }, []);
 
-  // Auto-save settings on change
   useEffect(() => {
     const save = async () => {
       try {
@@ -42,16 +44,13 @@ function App() {
 
   const loadInitialData = async () => {
     try {
-      // Load settings
       const settings = await storageService.getSettings();
       setApiKey(settings.apiKey || "");
-      console.log('settings', settings);
+      console.log("settings", settings);
 
-      // Load chat sessions
       const sessions = await storageService.getChatSessions();
       setChatSessions(sessions);
 
-      // Always start a new chat on load: clear any saved current session
       await storageService.clearCurrentSession();
       setCurrentSessionId(null);
       setMessages([]);
@@ -72,35 +71,85 @@ function App() {
     setMessages(newMessages);
     setIsLoading(true);
 
-    // Insert a placeholder assistant message to stream into
     const assistantMessageId = (Date.now() + 1).toString();
-    const placeholderAssistant: Message = {
+    const streamingAssistant: Message = {
       id: assistantMessageId,
-      content: "Generating userscript…",
+      content: "",
       isUser: false,
       timestamp: new Date(),
     };
-    setMessages([...newMessages, placeholderAssistant]);
+    setMessages([...newMessages, streamingAssistant]);
 
     try {
-      // Compose formatted user message with current page context
       let currentUrl = "unknown";
+      let domSnippet = "";
       try {
         const tab = await chromeService.getCurrentTab();
         currentUrl = tab?.url || "unknown";
-      } catch {
-        // Not in extension context or failed to get tab; keep placeholder
-      }
-      const formattedUserMessage = `Current Page: ${currentUrl}\nDOM content: PLACEHOLDER\nUser Query: ${message}`;
+      } catch {}
+      try {
+        const domResult = await chromeService.getPageDomSnapshot(0);
+        if (domResult.success) {
+          domSnippet = domResult.domHtml || domResult.domText || "";
+        }
+      } catch {}
+      const formattedUserMessage = `Current Page: ${currentUrl}\nDOM content (sanitized HTML):\n${domSnippet}\n\nUser Query: ${message}`;
 
-      // Load system prompt from extension/public (works in dev and extension)
-      const systemPromptUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
-        ? chrome.runtime.getURL('system_prompt.md')
-        : '/system_prompt.md';
+      const systemPromptUrl =
+        typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getURL
+          ? chrome.runtime.getURL("system_prompt.md")
+          : "/system_prompt.md";
       const resp = await fetch(systemPromptUrl);
       const systemPrompt = await resp.text();
 
       let accumulated = "";
+      let hasShownFriendly = false;
+
+      const extractFriendlyFromPartial = (text: string): string | null => {
+        const fmKeyIndex = text.indexOf('"friendly_message"');
+        if (fmKeyIndex === -1) return null;
+        const afterColon = text.indexOf(":", fmKeyIndex);
+        if (afterColon === -1) return null;
+        const startQuote = text.indexOf('"', afterColon);
+        if (startQuote === -1) return null;
+
+        const userscriptKeyIndex = text.indexOf('"userscript"', startQuote + 1);
+
+        const scanLimit =
+          userscriptKeyIndex === -1 ? text.length : userscriptKeyIndex;
+        let i = startQuote + 1;
+        let closing = -1;
+        while (i < scanLimit) {
+          if (text[i] === '"') {
+            let backslashes = 0;
+            let j = i - 1;
+            while (j > startQuote && text[j] === "\\") {
+              backslashes++;
+              j--;
+            }
+            if (backslashes % 2 === 0) {
+              closing = i;
+              break;
+            }
+          }
+          i++;
+        }
+
+        const endIndex = closing !== -1 ? closing : scanLimit;
+        if (endIndex <= startQuote + 1) return null;
+        const raw = text.slice(startQuote + 1, endIndex);
+        try {
+          if (closing !== -1) {
+            return JSON.parse('"' + raw + '"');
+          }
+        } catch {}
+
+        return raw
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+      };
       const fullText = await aiService.streamGenerate(
         {
           apiKey,
@@ -109,11 +158,22 @@ function App() {
         },
         (delta) => {
           accumulated += delta;
-          // Do not stream raw JSON into the UI; wait to parse and show friendly_message
+          const maybeFriendly = extractFriendlyFromPartial(accumulated);
+          if (maybeFriendly && maybeFriendly.length > 0) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessageId
+                  ? { ...m, content: maybeFriendly }
+                  : m
+              )
+            );
+            if (!hasShownFriendly) {
+              hasShownFriendly = true;
+            }
+          }
         }
       );
 
-      // Try to parse structured JSON at the end
       let parsedScript: StructuredScript | null = null;
       try {
         const parsed = JSON.parse(fullText);
@@ -130,14 +190,7 @@ function App() {
             userscript: parsed.userscript,
             urlmatch: parsed.urlmatch,
           });
-          // Replace assistant message content with friendly_message
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMessageId
-                ? { ...m, content: parsed.friendly_message }
-                : m
-            )
-          );
+
           parsedScript = {
             title: parsed.title,
             friendly_message: parsed.friendly_message,
@@ -145,19 +198,19 @@ function App() {
             urlmatch: parsed.urlmatch,
           };
         }
-      } catch {
-        // ignore if not JSON
-      }
+      } catch {}
 
-      const finalMessages = [
-        ...newMessages,
+      const finalContent = parsedScript
+        ? parsedScript.friendly_message
+        : extractFriendlyFromPartial(accumulated) || accumulated;
+      const finalMessages = newMessages.concat([
         {
           id: assistantMessageId,
-          content: parsedScript ? parsedScript.friendly_message : accumulated,
+          content: finalContent,
           isUser: false,
           timestamp: new Date(),
         },
-      ];
+      ]);
       setMessages(finalMessages);
       setIsLoading(false);
       await saveConversation(finalMessages, message, parsedScript);
@@ -166,9 +219,9 @@ function App() {
       const errorMsg: Message = {
         id: (Date.now() + 2).toString(),
         content:
-          error?.message === 'Missing Gemini API key'
-            ? 'Please add your Gemini API key in Settings.'
-            : 'Something went wrong generating a response. Try again.',
+          error?.message === "Missing Gemini API key"
+            ? "Please add your Gemini API key in Settings."
+            : "Something went wrong generating a response. Try again.",
         isUser: false,
         timestamp: new Date(),
       };
@@ -202,11 +255,9 @@ function App() {
         scriptData: effectiveScript || undefined,
       };
 
-      // Save to storage
       await storageService.saveChatSession(session);
       await storageService.saveCurrentSession(session);
 
-      // Update local state
       setCurrentSessionId(sessionId);
       setChatSessions(await storageService.getChatSessions());
     } catch (error) {
@@ -220,7 +271,6 @@ function App() {
     setCurrentSessionId(null);
     setScriptData(null);
 
-    // Clear current session from storage
     try {
       await storageService.clearCurrentSession();
     } catch (error) {
@@ -245,7 +295,6 @@ function App() {
         setCurrentSessionId(sessionId);
         setScriptData(session.scriptData || null);
 
-        // Save as current session
         await storageService.saveCurrentSession(session);
       }
     } catch (error) {
@@ -257,10 +306,8 @@ function App() {
     try {
       await storageService.deleteChatSession(sessionId);
 
-      // Update local state
       setChatSessions(await storageService.getChatSessions());
 
-      // If we're deleting the current session, clear it
       if (currentSessionId === sessionId) {
         setCurrentSessionId(null);
         setMessages([]);

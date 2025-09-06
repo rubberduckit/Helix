@@ -34,7 +34,7 @@ export class AiService {
     const ai = new GoogleGenAI({ apiKey });
 
     const config = {
-      thinkingConfig: { thinkingBudget: 0 },
+      thinkingConfig: { thinkingBudget: -1 },
       systemInstruction: systemPrompt,
       responseMimeType: "application/json",
       responseSchema: {

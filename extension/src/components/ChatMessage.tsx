@@ -9,6 +9,8 @@ interface ChatMessageProps {
   timestamp: Date;
   onExecuteScript?: () => void;
   onExecuteInlineScript?: () => void;
+  disabled?: boolean;
+  loadingLabel?: string;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -17,6 +19,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   timestamp,
   onExecuteScript,
   onExecuteInlineScript,
+  disabled = false,
+  loadingLabel,
 }) => {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
@@ -30,7 +34,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         >
           <CardContent className="p-3">
             <p className="text-sm">{message}</p>
-            {!isUser && (onExecuteScript || onExecuteInlineScript) && (
+            {!isUser && (onExecuteScript || onExecuteInlineScript || disabled) && (
               <div className="mt-3 pt-2 border-t border-border">
                 <Button
                   variant="secondary"
@@ -43,9 +47,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                     }
                   }}
                   className="gap-2"
+                  disabled={disabled || (!onExecuteScript && !onExecuteInlineScript)}
                 >
                   <Play className="h-4 w-4" />
-                  Run Script
+                  {disabled && loadingLabel ? loadingLabel : "Run Script"}
                 </Button>
               </div>
             )}

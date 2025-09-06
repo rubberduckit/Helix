@@ -39,15 +39,18 @@ export const ChatPage: React.FC<ChatPageProps> = ({
     try {
       if (chromeService.isChromeExtension()) {
         if (scriptData && scriptData.userscript) {
-          const result = await chromeService.injectScript(scriptData.userscript);
+          const result = await chromeService.injectScript(
+            scriptData.userscript
+          );
           if (result.success) {
             console.log("Userscript executed successfully:", result.result);
           } else {
             console.error("Failed to execute userscript:", result.error);
           }
         } else {
-          // Fallback: inject template if no userscript is available
-          const result = await chromeService.injectScriptFile("userscript-template.js");
+          const result = await chromeService.injectScriptFile(
+            "userscript-template.js"
+          );
           if (result.success) {
             console.log("Script file injected successfully:", result.result);
           } else {
@@ -55,7 +58,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({
           }
         }
       } else {
-        // Fallback for development mode
         console.log("Development mode: Script would execute", scriptData);
         alert("Helix userscript would execute in extension mode");
       }
@@ -66,18 +68,21 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
   const handleExecuteInlineScript = async () => {
     try {
-      // Execute inline userscript from structured data if available
       const scriptCode = scriptData?.userscript;
       if (chromeService.isChromeExtension()) {
-        const result = await chromeService.injectScript(scriptCode || "console.log('No userscript available')");
+        const result = await chromeService.injectScript(
+          scriptCode || "console.log('No userscript available')"
+        );
         if (result.success) {
           console.log("Inline script executed successfully:", result.result);
         } else {
           console.error("Failed to execute inline script:", result.error);
         }
       } else {
-        // Fallback for development mode
-        console.log("Development mode: Inline script would execute:", scriptCode);
+        console.log(
+          "Development mode: Inline script would execute:",
+          scriptCode
+        );
         alert("Helix inline script would execute in extension mode");
       }
     } catch (error) {
@@ -110,9 +115,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({
                       <ArrowUp className="h-5 w-5 text-foreground" />
                     </div>
                     <div>
-                      <div className="font-medium">Add a scroll to top button</div>
+                      <div className="font-medium">
+                        Add a scroll to top button
+                      </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Inject a floating button to jump back to the top quickly.
+                        Inject a floating button to jump back to the top
+                        quickly.
                       </div>
                     </div>
                   </div>
@@ -120,7 +128,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
               </button>
 
               <button
-                onClick={() => onSendMessage("Change the style of this website")}
+                onClick={() =>
+                  onSendMessage("Change the style of this website")
+                }
                 className="group relative w-full text-left rounded-xl p-[1px] bg-[linear-gradient(158.55deg,_#ffffffa8_13%,_#0086FFa8_64%)] hover:shadow-sm transition-shadow"
               >
                 <div className="rounded-xl bg-[#171717] p-4 h-full">
@@ -129,7 +139,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
                       <Palette className="h-5 w-5 text-foreground" />
                     </div>
                     <div>
-                      <div className="font-medium">Change the style of this website</div>
+                      <div className="font-medium">
+                        Change the style of this website
+                      </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         Restyle colors, fonts, and spacing via a userscript.
                       </div>
@@ -139,7 +151,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
               </button>
 
               <button
-                onClick={() => onSendMessage("Add a button that does something crazy")}
+                onClick={() =>
+                  onSendMessage("Add a button that does something crazy")
+                }
                 className="group relative w-full text-left rounded-xl p-[1px] bg-[linear-gradient(158.55deg,_#ffffffa8_13%,_#0086FFa8_64%)] hover:shadow-sm transition-shadow"
               >
                 <div className="rounded-xl bg-[#171717] p-4 h-full">
@@ -148,7 +162,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
                       <Zap className="h-5 w-5 text-foreground" />
                     </div>
                     <div>
-                      <div className="font-medium">Add a button that does something crazy</div>
+                      <div className="font-medium">
+                        Add a button that does something crazy
+                      </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         Insert a playful button with an unexpected action.
                       </div>
@@ -179,6 +195,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({
                 !isLoading &&
                 !!scriptData?.userscript
                   ? handleExecuteInlineScript
+                  : undefined
+              }
+              disabled={
+                !message.isUser && idx === messages.length - 1 && isLoading
+              }
+              loadingLabel={
+                isLoading && idx === messages.length - 1
+                  ? "Generating script…"
                   : undefined
               }
             />

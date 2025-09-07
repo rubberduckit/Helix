@@ -36,46 +36,57 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
         </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {chatSessions.map((session) => (
           <Card
             key={session.id}
-            className="group transition-colors border-transparent hover:bg-accent/50"
+            className="group transition-all duration-200 border border-border/50 hover:border-border hover:shadow-sm cursor-pointer bg-card/50 hover:bg-card"
           >
-            <CardHeader className="py-3">
-              <div className="flex items-center gap-3">
+            <CardHeader className="p-4">
+              <div className="flex items-start gap-4">
                 <button
-                  className="flex flex-1 items-center gap-3 text-left"
+                  className="flex flex-1 items-start gap-4 text-left min-w-0 w-full"
                   onClick={() => onResumeChat(session.id)}
-                  aria-label="Open conversation"
+                  aria-label={`Open conversation: ${session.title}`}
                 >
-                  <div className="h-8 w-8 shrink-0 rounded-md bg-muted/70 flex items-center justify-center">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-10 w-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <MessageSquare className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <CardTitle className="text-sm font-medium truncate">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <CardTitle className="text-base font-semibold truncate flex-1 min-w-0 text-foreground group-hover:text-primary transition-colors">
                         {session.title}
                       </CardTitle>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
+                      <ChevronRight className="h-5 w-5 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-0.5" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {session.lastMessage}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>{session.timestamp.toLocaleDateString()}</span>
-                      <span className="h-1 w-1 rounded-full bg-border" />
-                      <span>{session.messageCount} messages</span>
+                    {session.lastMessage && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3 leading-relaxed">
+                        {session.lastMessage}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {session.timestamp.toLocaleDateString()}
+                      </span>
+                      <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="h-3 w-3" />
+                        {session.messageCount} message{session.messageCount !== 1 ? 's' : ''}
+                      </span>
                     </div>
                   </div>
                 </button>
-                <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => onDeleteChat(session.id)}
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteChat(session.id);
+                    }}
                     aria-label="Delete conversation"
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

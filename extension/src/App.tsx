@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { FloatingNav } from "./components/FloatingNav";
 import { ChatPage } from "./components/ChatPage";
 import { HistoryPage } from "./components/HistoryPage";
 import { SettingsPage } from "./components/SettingsPage";
+import { ChatInput } from "./components/ChatInput";
 import { storageService } from "./services/storageService";
 import { chromeService } from "./services/chromeService";
 import type {
@@ -24,6 +25,8 @@ function App() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [scriptData, setScriptData] = useState<StructuredScript | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(messages.length);
 
   useEffect(() => {
     loadInitialData();
@@ -41,6 +44,29 @@ function App() {
       save();
     }
   }, [apiKey]);
+
+  useLayoutEffect(() => {
+    if (scrollContainerRef.current && currentPage === "chat") {
+      const container = scrollContainerRef.current;
+      const prevMessagesLength = prevMessagesLengthRef.current;
+      const currentMessagesLength = messages.length;
+
+      // A conversation load is approximated by a large jump in message count
+      const isConvoLoad =
+        currentMessagesLength > 0 &&
+        (prevMessagesLength === 0 ||
+          Math.abs(currentMessagesLength - prevMessagesLength) > 2);
+
+      const behavior = isConvoLoad ? "instant" : "smooth";
+
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: behavior,
+      });
+    }
+    // Update the ref for the next render
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages, currentPage]);
 
   const loadInitialData = async () => {
     try {
@@ -373,14 +399,24 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <FloatingNav
-        onNewChat={handleNewChat}
-        onChatHistory={handleChatHistory}
-        onSettings={handleSettings}
-        title={getHeaderTitle()}
-      />
-      <div className="flex-1 min-h-0 flex flex-col bg-card shadow-lg">
-        {renderCurrentPage()}
+      <div className="flex-shrink-0">
+        <FloatingNav
+          onNewChat={handleNewChat}
+          onChatHistory={handleChatHistory}
+          onSettings={handleSettings}
+          title={getHeaderTitle()}
+        />
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col bg-card shadow-lg relative">
+        <div
+          ref={scrollContainerRef}
+          className="absolute inset-0 overflow-y-auto"
+        >
+          {renderCurrentPage()}
+        </div>
+        {currentPage === "chat" && (
+          <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        )}
       </div>
     </div>
   );
